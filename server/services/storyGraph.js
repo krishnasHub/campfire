@@ -49,6 +49,15 @@ export function evalCondition(cond, gs) {
   return false
 }
 
+// Collect the flag names a condition reads (for clearing stale progress flags on commit).
+export function conditionFlags(cond, out = new Set()) {
+  if (!cond || typeof cond !== 'object') return out
+  if ('flag' in cond) out.add(cond.flag)
+  for (const k of ['all', 'any']) if (cond[k]) cond[k].forEach(c => conditionFlags(c, out))
+  if (cond.not) conditionFlags(cond.not, out)
+  return out
+}
+
 // ── Node lookup ───────────────────────────────────────────────────────────────
 export function allNodes(campaign) {
   const nodes = [...(campaign.mainQuest?.nodes || [])]
@@ -67,13 +76,16 @@ export function objectivesMet(node, gs) {
 
 // Pick the winning branch: lowest priority number first; skip branches that would leave
 // the node while requireObjectivesToLeave and objectives are unmet (self-loops still allowed).
-export function chooseBranch(node, gs) {
+// opts.reactiveOnly: only fire branches flagged `reactive` (consequences like an alarm) —
+// used on normal turns so the story doesn't PROGRESS until the player presses onward.
+export function chooseBranch(node, gs, opts = {}) {
   if (!node?.branches) return null
   const gate = node.requireObjectivesToLeave && !objectivesMet(node, gs)
   const sorted = [...node.branches].sort((a, b) => (a.priority ?? 50) - (b.priority ?? 50))
   for (const b of sorted) {
     if (!evalCondition(b.when, gs)) continue
     if (gate && b.to !== node.id) continue
+    if (opts.reactiveOnly && !b.reactive && b.to !== node.id) continue
     return b
   }
   return null
@@ -106,14 +118,14 @@ export function applyEntryEffects(node, gs) {
 
 // Advance the main-quest pointer if a branch fires. Mutates gs.story. Returns the
 // transition {from,to,label,branchId} or null if the party stayed on the current node.
-export function advance(campaign, gs) {
+export function advance(campaign, gs, opts = {}) {
   if (!gs.story) {
     gs.story = { mainNodeId: campaign.mainQuest.startNodeId, sideStack: [], completedNodes: [] }
     applyEntryEffects(nodeById(campaign, gs.story.mainNodeId), gs)
   }
   const current = nodeById(campaign, gs.story.mainNodeId)
   if (!current) return null
-  const branch = chooseBranch(current, gs)
+  const branch = chooseBranch(current, gs, opts)
   if (!branch || branch.to === current.id) return null
   if (!gs.story.completedNodes.includes(current.id)) gs.story.completedNodes.push(current.id)
   gs.story.mainNodeId = branch.to

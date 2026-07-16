@@ -43,6 +43,16 @@ const MIGRATIONS = [
       CREATE INDEX idx_transcript_session ON transcript(sessionId, round, idx);
     `)
   },
+  // v1 -> v2: character portraits, cached per campaign+role (reused across sessions)
+  (d) => {
+    d.exec(`
+      CREATE TABLE portraits (
+        key       TEXT PRIMARY KEY,   -- "<campaignId>:<roleId>"
+        url       TEXT NOT NULL,
+        createdAt TEXT NOT NULL
+      );
+    `)
+  },
 ]
 
 function migrate() {

@@ -39,6 +39,14 @@ export function extractImageTag(content) {
   return { cleaned: content.replace(/\[IMAGE:[^\]]+\]/gi, '').replace(/\s{2,}/g, ' ').trim(), imagePrompt: m[1].trim() }
 }
 
+// Pull the GM's suggested next actions ([OPTIONS: a | b | c]) off the narration.
+export function extractOptions(content) {
+  const m = content.match(/\[OPTIONS:\s*([^\]]+)\]/i)
+  if (!m) return { cleaned: content, options: [] }
+  const options = m[1].split('|').map(s => s.trim()).filter(Boolean).slice(0, 3)
+  return { cleaned: content.replace(/\[OPTIONS:[^\]]+\]/gi, '').trim(), options }
+}
+
 // ── Intent parse ──────────────────────────────────────────────────────────────
 export async function parseIntent({ campaign, node, gs, actionText, userRole }) {
   const sys = `You classify a player's action in a tabletop RPG. Decide whether it needs a dice check (uncertain, contested, or risky) or not (pure talk, trivial movement, roleplay).
@@ -62,16 +70,18 @@ DC ladder: easy 8, medium 12, hard 16, very hard 20. "target" = an enemy or npc 
 // ── GM narration (Pass A) ──────────────────────────────────────────────────────
 export async function narrateGM({ campaign, node, gs, actionText, actorName, check, onChunk, opening = false }) {
   const sys = `You are the Game Master of an immersive text RPG set in ${campaign.universe.name}. ${campaign.universe.primer}
-Narrate vividly — second person ("you") for the player, third person for companions and NPCs. Stay strictly grounded in the CURRENT SCENE STATE: never contradict who is present, the party's HP/resources, or the established location. Keep it to 2–4 tight paragraphs.
-You do NOT decide success and you never invent dice numbers. When a DICE OUTCOME is given, narrate exactly that tier: crit = spectacular success; success = it works; partial = it works but at a cost or with a complication; fail = it doesn't work; fumble = it backfires.
-Rarely, on a genuinely dramatic visual beat, you may emit ONE line of the exact form [IMAGE: a vivid one-sentence description] on its own line. Do not overuse it.
-Never speak or act for the player's own character beyond the direct consequences of what they declared.`
+Narrate vividly — second person ("you") for the player, third person for companions and NPCs. Stay strictly grounded in the CURRENT SCENE STATE: never contradict who is present, the party's HP/resources, or the established location.
+PACING — important: keep it to 2–3 SHORT paragraphs and advance only the IMMEDIATE moment. Do NOT skip ahead in time, and do NOT resolve this beat's objective unless the player's action decisively accomplishes it. A beat unfolds over several turns — let it breathe and end on a moment that invites the next action, rather than wrapping everything up at once.
+You do NOT decide success and you never invent dice numbers. When a DICE OUTCOME is given, narrate exactly that tier: crit = spectacular success; success = it works; partial = it works but at a cost or complication; fail = it doesn't work; fumble = it backfires.
+Rarely, on a genuinely dramatic visual beat, emit ONE line of the exact form [IMAGE: a vivid one-sentence description] on its own line.
+Never speak or act for the player's own character beyond the direct consequences of what they declared.
+ALWAYS end with exactly one final line: [OPTIONS: first | second | third] — three short, concrete actions the player could take next (2–6 words each) to orient them. They are suggestions, not the only choices.`
   const outcome = check
     ? `\n\nDICE OUTCOME for this action (${check.skill}${check.target ? ` vs ${check.target}` : ''}): ${String(check.tier).toUpperCase()} (rolled ${check.total} vs DC ${check.dc}).`
     : ''
   const usr = opening
-    ? `${serializeForPrompt(gs, campaign, node)}\n\nOpen the scene: set the stage for this beat and hand the moment to the player. Do not resolve anything yet.`
-    : `${serializeForPrompt(gs, campaign, node)}\n\n${actorName} does: "${actionText}"${outcome}\n\nNarrate what happens.`
+    ? `${serializeForPrompt(gs, campaign, node)}\n\nThis is the OPENING scene. First ground the player: make clear who they are (${actorName || 'the player'}), where they are, and what is at stake here. Then hand them the moment — describe what they can see and act on right now. Do not resolve anything yet.`
+    : `${serializeForPrompt(gs, campaign, node)}\n\n${actorName} does: "${actionText}"${outcome}\n\nNarrate just this moment.`
   logPrompt('gm', sys, usr)
   const text = await streamChatCompletion({
     messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
@@ -91,7 +101,8 @@ You may ONLY set these flags (booleans): ${flagVocab.join(', ') || '(none)'}
 Party role ids: ${roleIds.join(', ') || '(none)'}. Enemy ids: ${enemyIds.join(', ') || '(none)'}.
 Return ONLY JSON, omitting empty keys:
 {"flags":{"<allowedFlag>":true|false},"counters":{"<name>":int},"party":{"<roleId>":{"hpDelta":int,"manaDelta":int,"staminaDelta":int,"position":str,"conditionsAdd":[str],"conditionsRemove":[str]}},"enemies":{"<enemyId>":{"hpDelta":int,"status":str}},"relationships":{"<roleId>":{"affinityDelta":int,"tensionDelta":int}}}
-Set a flag true only when the narration clearly makes it so. Never output a flag outside the allowed list.`
+Set a flag true only when the narration clearly makes it so. Never output a flag outside the allowed list.
+PACING: be conservative with objective/transition flags — only set one when the narration shows the player DECISIVELY accomplishing that objective. If the moment is still unfolding, set NO flags. Under-setting is better than rushing the story forward.`
   const usr = `CURRENT STATE:\n${serializeForPrompt(gs, campaign, node)}\n\nNARRATION JUST NOW:\n${narration}\n\nOutput the state changes as JSON.`
   logPrompt('adjudicate', sys, usr)
   const raw = await streamChatCompletion({

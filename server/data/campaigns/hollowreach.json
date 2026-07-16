@@ -107,7 +107,7 @@
         "onImage": "auto",
         "requireObjectivesToLeave": false,
         "branches": [
-          { "id": "o_alarm", "to": "n_pursuit", "priority": 5, "when": { "flag": "alarm_raised" }, "label": "The alarm goes up — run!" },
+          { "id": "o_alarm", "to": "n_pursuit", "priority": 5, "when": { "flag": "alarm_raised" }, "label": "The alarm goes up — run!", "reactive": true },
           { "id": "o_pass", "to": "n_passes", "priority": 10, "when": { "any": [{ "flag": "camp_slipped" }, { "flag": "camp_routed" }] }, "label": "Past the camp, into the pass" },
           { "id": "o_stay", "to": "n_orccamp", "priority": 100, "when": { "always": true }, "label": "Still pinned at the treeline" }
         ]
@@ -123,7 +123,7 @@
         "onImage": "auto",
         "requireObjectivesToLeave": false,
         "branches": [
-          { "id": "f_collapse", "to": "n_pursuit", "priority": 5, "when": { "flag": "bridge_collapsed" }, "label": "The bridge gives way" },
+          { "id": "f_collapse", "to": "n_pursuit", "priority": 5, "when": { "flag": "bridge_collapsed" }, "label": "The bridge gives way", "reactive": true },
           { "id": "f_across", "to": "n_passes", "priority": 10, "when": { "any": [{ "flag": "troll_defeated" }, { "flag": "troll_bribed" }] }, "label": "Across the ford" },
           { "id": "f_stay", "to": "n_ford", "priority": 100, "when": { "always": true }, "label": "Still facing the troll" }
         ]

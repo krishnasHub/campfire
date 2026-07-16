@@ -2,17 +2,17 @@ import { Router } from 'express'
 import { randomUUID } from 'crypto'
 import { getCampaign, campaignSummary } from '../services/campaigns.js'
 import { buildInitialState, applyDeltas } from '../services/gameState.js'
-import { createSave, loadSave, listSaves, updateMoods, commitRound, loadTranscript, deleteSave } from '../services/saves.js'
-import { nodeById, advance, triggeredSideQuests, chooseBranchTrace } from '../services/storyGraph.js'
+import { createSave, loadSave, listSaves, updateMoods, commitRound, loadTranscript, deleteSave, getPortrait, setPortrait } from '../services/saves.js'
+import { nodeById, advance, triggeredSideQuests, chooseBranchTrace, conditionFlags } from '../services/storyGraph.js'
 import { resolve } from '../services/dice.js'
 import { spendCost } from '../services/roles.js'
 import { getBaselineTraits } from '../services/bots.js'
-import { parseIntent, narrateGM, adjudicate, companionInnerRead, companionAction, companionCheckFor, extractImageTag } from '../services/gm.js'
+import { parseIntent, narrateGM, adjudicate, companionInnerRead, companionAction, companionCheckFor, extractImageTag, extractOptions } from '../services/gm.js'
 import { generateImage } from '../services/imageGen.js'
 
 const router = Router()
 
-const publicNode = (n) => n && { id: n.id, title: n.title, type: n.type, objectives: n.objectives || [] }
+const publicNode = (n) => n && { id: n.id, title: n.title, type: n.type, setup: n.setup, objectives: n.objectives || [] }
 const roleAgi = (campaign, roleId) => campaign.roles.find(r => r.id === roleId)?.stats?.agility ?? 0
 
 function groundImagePrompt(campaign, gs, pi) {
@@ -79,6 +79,26 @@ router.patch('/:id/mood', (req, res) => {
 
 router.delete('/:id', (req, res) => res.json({ deleted: deleteSave(req.params.id) }))
 
+// Character portrait — generated once per campaign+role, then cached & reused.
+router.post('/:id/portrait', async (req, res) => {
+  const save = loadSave(req.params.id)
+  if (!save) return res.status(404).json({ error: 'not found' })
+  const campaign = getCampaign(save.campaignId)
+  const role = campaign?.roles?.find(r => r.id === req.body.roleId)
+  if (!role) return res.status(400).json({ error: 'unknown role' })
+  const key = `${save.campaignId}:${role.id}`
+  let url = getPortrait(key)
+  if (!url) {
+    const prompt = `${role.race} ${role.class} named ${role.name}. ${(role.backstory || '').slice(0, 160)} — character portrait, upper body, looking toward the viewer`
+    try {
+      console.log(`[portrait] generating ${key}`)
+      url = await generateImage(prompt, { artStyle: 'character-portrait', width: 832, height: 1024 })
+      setPortrait(key, url)
+    } catch (e) { console.error('[portrait]', e.message); return res.status(500).json({ error: e.message }) }
+  }
+  res.json({ url })
+})
+
 // ── Opening scene (streamed GM scene-set) ─────────────────────────────────────
 router.post('/:id/opening', async (req, res) => {
   const save = loadSave(req.params.id)
@@ -92,15 +112,18 @@ router.post('/:id/opening', async (req, res) => {
   console.log(`[opening] session=${req.params.id} node=${gs.story.mainNodeId}`)
   send({ event: 'gm_start' })
   try {
-    let text = await narrateGM({ campaign, node: nodeById(campaign, gs.story.mainNodeId), gs, opening: true, onChunk: ch => send({ event: 'gm_chunk', chunk: ch }) })
-    const { cleaned, imagePrompt } = extractImageTag(text)
-    text = cleaned
+    const userRole = campaign.roles.find(r => r.id === save.party.userRoleId)
+    let text = await narrateGM({ campaign, node: nodeById(campaign, gs.story.mainNodeId), gs, opening: true, actorName: userRole?.name, onChunk: ch => send({ event: 'gm_chunk', chunk: ch }) })
+    const img = extractImageTag(text)
+    const opt = extractOptions(img.cleaned)
+    text = opt.cleaned
     send({ event: 'gm_done', content: text })
+    if (opt.options.length) send({ event: 'options', options: opt.options })
     commitRound(req.params.id, { gameState: gs, round: 0, transcriptEntries: [{ type: 'gm', text }] })
-    if (imagePrompt) {
+    if (img.imagePrompt) {
       send({ event: 'image_start', subject: 'scene' })
       try {
-        const url = await generateImage(groundImagePrompt(campaign, gs, { subject: 'scene', prompt: imagePrompt }), { artStyle: campaign.universe.artStyle })
+        const url = await generateImage(groundImagePrompt(campaign, gs, { subject: 'scene', prompt: img.imagePrompt }), { artStyle: campaign.universe.artStyle })
         send({ event: 'image', subject: 'scene', url })
       } catch (e) { send({ event: 'image', subject: 'scene', url: null }); console.error('[opening image]', e.message) }
     }
@@ -113,8 +136,10 @@ router.post('/:id/opening', async (req, res) => {
 router.post('/:id/round', async (req, res) => {
   const save = loadSave(req.params.id)
   if (!save) return res.status(404).json({ error: 'not found' })
-  const { action } = req.body
-  if (!action?.trim()) return res.status(400).json({ error: 'action required' })
+  const rawAction = (req.body.action || '').trim()
+  const pressOnward = !!req.body.advance   // player clicked "Press onward →": allow progress branches
+  if (!rawAction && !pressOnward) return res.status(400).json({ error: 'action required' })
+  const action = rawAction || 'The party is ready — press onward to whatever comes next.'
 
   const campaign = getCampaign(save.campaignId)
   const gs = save.gameState
@@ -135,11 +160,36 @@ router.post('/:id/round', async (req, res) => {
     console.log(`[round]   stayed at ${node()?.id} (${who})${tr.gate ? ' [objectives-gate ON]' : ''}; branches: ${tr.evaluated.map(e => `${e.id}->${e.to}:${e.pass ? 'PASS' : 'no'}${e.blocked ? '(blk)' : ''}`).join(', ')}`)
   }
 
+  // Advancement: on a normal turn only REACTIVE branches (consequences) can fire, so the
+  // story doesn't progress until the player presses onward. On a press-onward turn, all
+  // branches are eligible (the player chose to move; the engine still decides where).
+  // At most one transition per round either way.
+  let advancedThisRound = false
+  const tryAdvance = (who) => {
+    if (advancedThisRound) return null
+    const t = advance(campaign, gs, { reactiveOnly: !pressOnward })
+    if (t) { advancedThisRound = true; gs.story.beatTurns = 0 }
+    logAdvance(who, t)
+    if (t) send({ event: 'node_transition', ...t, node: publicNode(node()) })
+    return t
+  }
+
+  gs.story.beatTurns = (gs.story.beatTurns || 0) + 1
   send({ event: 'round_start', round })
-  console.log(`[round] ═══ session=${req.params.id} round=${round} node=${gs.story.mainNodeId} action="${action.replace(/\s+/g, ' ').slice(0, 100)}"`)
+  console.log(`[round] ═══ session=${req.params.id} round=${round} node=${gs.story.mainNodeId} beatTurn=${gs.story.beatTurns}${pressOnward ? ' PRESS-ONWARD' : ''} action="${action.replace(/\s+/g, ' ').slice(0, 100)}"`)
 
   try {
     const userRole = campaign.roles.find(r => r.id === save.party.userRoleId)
+
+    // Press-onward commits fresh: clear this beat's tentative progress flags so the
+    // player's STATED direction decides where we go — not a stray flag from exploring.
+    if (pressOnward) {
+      const clear = new Set()
+      for (const b of node()?.branches || []) if (!b.reactive) conditionFlags(b.when, clear)
+      const cleared = []
+      for (const f of clear) if (gs.flags[f]) { gs.flags[f] = false; cleared.push(f) }
+      if (cleared.length) console.log(`[round]   press-onward: cleared stale progress flags [${cleared}] to commit fresh`)
+    }
 
     // 1. Intent → optional player check
     let check = null
@@ -157,8 +207,10 @@ router.post('/:id/round', async (req, res) => {
     send({ event: 'gm_start' })
     let gmText = await narrateGM({ campaign, node: node(), gs, actionText: action, actorName: userRole?.name || 'The player', check, onChunk: ch => send({ event: 'gm_chunk', chunk: ch }) })
     const gmImg = extractImageTag(gmText)
-    gmText = gmImg.cleaned
+    const gmOpt = extractOptions(gmImg.cleaned)
+    gmText = gmOpt.cleaned
     send({ event: 'gm_done', content: gmText })
+    if (gmOpt.options.length) send({ event: 'options', options: gmOpt.options })
     transcript.push({ type: 'gm', text: gmText })
     if (gmImg.imagePrompt) pendingImages.push({ subject: 'scene', prompt: gmImg.imagePrompt })
 
@@ -167,10 +219,8 @@ router.post('/:id/round', async (req, res) => {
     send({ event: 'state_update', gameState: gs })
     console.log(`[round]   flags now: [${Object.keys(gs.flags).filter(k => gs.flags[k]).join(', ')}]`)
 
-    // 4. Advance the story graph + side-quest triggers
-    const t = advance(campaign, gs)
-    logAdvance('player', t)
-    if (t) send({ event: 'node_transition', ...t, node: publicNode(node()) })
+    // 4. Advance the story graph (turn-gated) + side-quest triggers
+    tryAdvance('player')
     for (const sq of triggeredSideQuests(campaign, gs)) {
       gs.story.sideStack.push(`${sq.id}:${sq.entryNodeId}`)
       console.log(`[round]   SIDE QUEST triggered: ${sq.id}`)
@@ -223,9 +273,7 @@ router.post('/:id/round', async (req, res) => {
 
       applyDeltas(gs, await adjudicate({ campaign, node: node(), gs, narration: actText }))
       send({ event: 'state_update', gameState: gs })
-      const t2 = advance(campaign, gs)
-      logAdvance(botId, t2)
-      if (t2) send({ event: 'node_transition', ...t2, node: publicNode(node()) })
+      tryAdvance(botId)
     }
 
     send({ event: 'all_done' })

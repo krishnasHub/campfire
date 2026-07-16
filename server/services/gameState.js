@@ -36,7 +36,7 @@ export function buildInitialState(campaign, party) {
     counters: {},
     relationships: {},
     lastCheck: null,
-    story: { mainNodeId: campaign.mainQuest.startNodeId, sideStack: [], completedNodes: [], completedSideQuests: [] },
+    story: { mainNodeId: campaign.mainQuest.startNodeId, sideStack: [], completedNodes: [], completedSideQuests: [], beatTurns: 0 },
   }
   const roleById = Object.fromEntries((campaign.roles || []).map(r => [r.id, r]))
   const assignments = { ...(party.assignments || {}) }

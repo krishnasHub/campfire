@@ -66,3 +66,11 @@ export function deleteSave(sessionId) {
   // foreign_keys = ON + ON DELETE CASCADE removes the transcript rows too
   return db.prepare('DELETE FROM saves WHERE sessionId = ?').run(sessionId).changes > 0
 }
+
+// ── Character portraits (cached per campaign+role) ────────────────────────────
+export function getPortrait(key) {
+  return db.prepare('SELECT url FROM portraits WHERE key = ?').get(key)?.url || null
+}
+export function setPortrait(key, url) {
+  db.prepare('INSERT OR REPLACE INTO portraits (key, url, createdAt) VALUES (?, ?, ?)').run(key, url, nowIso())
+}

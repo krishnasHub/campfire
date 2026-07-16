@@ -7,7 +7,7 @@ function Bar({ cur, max, color }) {
   )
 }
 
-export default function PartyPanel({ gameState, campaign, companions }) {
+export default function PartyPanel({ gameState, campaign, companions, onExpand }) {
   if (!gameState) return null
   const roleName = (id) => campaign?.roles?.find(r => r.id === id)?.name || id
   const bot = (id) => companions.find(c => c.id === id)
@@ -19,7 +19,9 @@ export default function PartyPanel({ gameState, campaign, companions }) {
         return (
           <div key={rid} className={`bg-ash-800 border rounded p-2 text-xs ${down ? 'border-red-900 opacity-60' : 'border-ash-600'}`}>
             <div className="flex items-center justify-between">
-              <span className="font-medium text-stone-200">{roleName(rid)}</span>
+              <button onClick={() => onExpand?.(rid)} className="font-medium text-stone-200 hover:text-ember text-left" title="Character details">
+                {roleName(rid)} <span className="text-stone-600">ⓘ</span>
+              </button>
               <span className="text-[10px] text-stone-500">{p.actor === 'user' ? '★ you' : (b ? `${b.emoji} ${b.name.split(' ')[0]}` : p.actor)}</span>
             </div>
             <div className="mt-1.5 space-y-1">
