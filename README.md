@@ -18,12 +18,12 @@ cp .env.example server/.env         # then set VENICE_API_KEY=...
 
 ## Run
 ```bash
-# Windows:  start.bat   (or start.ps1)
-# Mac/Linux: ./start.sh
-# or:
-npm run dev                         # server :3001 + client :5173
+# Windows (PowerShell):  .\start.ps1     (or double-click start.bat)
+# Mac/Linux:             ./start.sh
 ```
-Open http://localhost:5173.
+The launcher **pulls the latest code**, **installs any missing dependencies** (incl. `better-sqlite3`), starts the server (:3001) + client (:5173), and **opens your browser** to http://localhost:5173. Press **Ctrl+C** to stop — both processes shut down automatically, no prompt.
+
+Or run the pieces manually: `npm run dev` (server + client together).
 
 ## Structure
 ```
