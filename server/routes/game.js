@@ -89,6 +89,49 @@ router.patch('/:id/mood', (req, res) => {
 
 router.delete('/:id', (req, res) => res.json({ deleted: deleteSave(req.params.id) }))
 
+// Fog-of-war region map — the server applies the fog so spoilers never reach the client.
+// visited/current/known places carry name+desc; adjacent-but-unknown places are "hint"
+// markers (no name); everything else is omitted. Endings are never hinted.
+router.get('/:id/map', (req, res) => {
+  const save = loadSave(req.params.id)
+  if (!save) return res.status(404).json({ error: 'not found' })
+  const campaign = getCampaign(save.campaignId)
+  const gs = save.gameState
+  const nodes = campaign?.mainQuest?.nodes || []
+  const coords = campaign?.map?.nodes || {}
+  const completed = new Set(gs.story?.completedNodes || [])
+  const current = gs.story?.mainNodeId
+  const known = new Set([...(gs.discovered || []), ...completed, current])
+
+  const hints = new Set()
+  for (const n of nodes) if (known.has(n.id)) for (const b of n.branches || []) {
+    const t = nodeById(campaign, b.to)
+    if (t && !known.has(t.id) && t.type !== 'ending' && coords[t.id]) hints.add(t.id)
+  }
+  const places = []
+  for (const n of nodes) {
+    const c = coords[n.id]
+    if (!c) continue
+    let state
+    if (n.id === current) state = 'current'
+    else if (completed.has(n.id)) state = 'visited'
+    else if (known.has(n.id)) state = 'known'
+    else if (hints.has(n.id)) state = 'hint'
+    else continue
+    places.push({
+      id: n.id, x: c.x, y: c.y, terrain: c.terrain, state,
+      name: state === 'hint' ? null : n.title,
+      desc: state === 'hint' ? null : (n.setup || '').slice(0, 240),
+    })
+  }
+  const visible = new Set(places.map(p => p.id))
+  const edges = []
+  for (const n of nodes) if (visible.has(n.id)) for (const b of n.branches || []) {
+    if (b.to !== n.id && visible.has(b.to)) edges.push({ from: n.id, to: b.to, traveled: completed.has(n.id) })
+  }
+  res.json({ style: campaign?.universe?.artStyle || 'cinematic-fantasy', region: campaign?.universe?.name, places, edges })
+})
+
 // Character portrait — generated once per campaign+role, then cached & reused.
 router.post('/:id/portrait', async (req, res) => {
   const save = loadSave(req.params.id)

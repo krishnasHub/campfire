@@ -5,6 +5,7 @@ import ObjectiveTracker from '../components/ObjectiveTracker.jsx'
 import DiceRoll from '../components/DiceRoll.jsx'
 import MoodSliders from '../components/MoodSliders.jsx'
 import CharacterSheet from '../components/CharacterSheet.jsx'
+import MapView from '../components/MapView.jsx'
 
 const uid = () => Math.random().toString(36).slice(2)
 const HELP_KEY = 'cf-help-seen'
@@ -23,6 +24,7 @@ export default function PlayScreen({ sessionId, companions, onExit }) {
   const [status, setStatus] = useState('active')
   const [moodOpen, setMoodOpen] = useState(false)
   const [expandRole, setExpandRole] = useState(null)
+  const [showMap, setShowMap] = useState(false)
   const [showHelp, setShowHelp] = useState(() => localStorage.getItem(HELP_KEY) !== '1')
 
   const feedRef = useRef([])
@@ -141,6 +143,7 @@ export default function PlayScreen({ sessionId, companions, onExit }) {
       <header className="flex items-center justify-between px-4 py-3 border-b border-ash-700">
         <div><span className="font-serif text-ember">{campaign?.name || 'Loading…'}</span></div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowMap(true)} className="text-xs text-stone-400 hover:text-ember border border-ash-600 rounded px-2 py-1">🗺 map</button>
           <button onClick={() => setMoodOpen(o => !o)} className="text-xs text-stone-400 hover:text-ember border border-ash-600 rounded px-2 py-1">🎚 moods</button>
           <button onClick={onExit} className="text-xs text-stone-400 hover:text-stone-200 border border-ash-600 rounded px-2 py-1">exit</button>
         </div>
@@ -234,6 +237,7 @@ export default function PlayScreen({ sessionId, companions, onExit }) {
       {expandRoleObj && (
         <CharacterSheet sessionId={sessionId} role={expandRoleObj} actorBot={expandActor} onClose={() => setExpandRole(null)} />
       )}
+      {showMap && <MapView sessionId={sessionId} onClose={() => setShowMap(false)} />}
     </div>
   )
 }
