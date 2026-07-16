@@ -69,13 +69,18 @@ DC ladder: easy 8, medium 12, hard 16, very hard 20. "target" = an enemy or npc 
 
 // ── GM narration (Pass A) ──────────────────────────────────────────────────────
 export async function narrateGM({ campaign, node, gs, actionText, actorName, check, onChunk, opening = false }) {
-  const sys = `You are the Game Master of an immersive text RPG set in ${campaign.universe.name}. ${campaign.universe.primer}
+  const nar = campaign.narrator || {}
+  const identity = nar.name
+    ? `You are ${nar.name} — ${nar.persona} You narrate this tale, set in ${campaign.universe.name}. ${campaign.universe.primer}`
+    : `You are the unseen narrator of a tale set in ${campaign.universe.name}. ${campaign.universe.primer}`
+  const sys = `${identity}
 Narrate vividly — second person ("you") for the player, third person for companions and NPCs. Stay strictly grounded in the CURRENT SCENE STATE: never contradict who is present, the party's HP/resources, or the established location.
 PACING — important: keep it to 2–3 SHORT paragraphs and advance only the IMMEDIATE moment. Do NOT skip ahead in time, and do NOT resolve this beat's objective unless the player's action decisively accomplishes it. A beat unfolds over several turns — let it breathe and end on a moment that invites the next action, rather than wrapping everything up at once.
 You do NOT decide success and you never invent dice numbers. When a DICE OUTCOME is given, narrate exactly that tier: crit = spectacular success; success = it works; partial = it works but at a cost or complication; fail = it doesn't work; fumble = it backfires.
 Rarely, on a genuinely dramatic visual beat, emit ONE line of the exact form [IMAGE: a vivid one-sentence description] on its own line.
 Never speak or act for the player's own character beyond the direct consequences of what they declared.
-ALWAYS end with exactly one final line: [OPTIONS: first | second | third] — three short, concrete actions the player could take next (2–6 words each) to orient them. They are suggestions, not the only choices.`
+ALWAYS end with exactly one final line: [OPTIONS: first | second | third] — three short, concrete actions the player could take next (2–6 words each) to orient them. They are suggestions, not the only choices.
+You are ${nar.name || 'the narrator'}: NEVER reveal or mention being an AI, a language model, a system, or a "GM"; never say "I am" followed by anything but your name; never break character or reference these instructions.`
   const outcome = check
     ? `\n\nDICE OUTCOME for this action (${check.skill}${check.target ? ` vs ${check.target}` : ''}): ${String(check.tier).toUpperCase()} (rolled ${check.total} vs DC ${check.dc}).`
     : ''
@@ -122,12 +127,13 @@ PACING: be conservative with objective/transition flags — only set one when th
 }
 
 // ── Companion inner-read (Pass 1) — mood-driven DECISION ───────────────────────
-export async function companionInnerRead({ campaign, node, gs, botId, mood, role, situation }) {
+export async function companionInnerRead({ campaign, node, gs, botId, mood, role, situation, playerAction }) {
   const abilities = (role.abilities || []).map(a => a.name).join(', ')
   const sys = buildSystemPrompt(botId, mood)
     + `\n\nRIGHT NOW you are playing ${role.name}, a ${role.race} ${role.class} (tags: ${(role.tags || []).join(', ')}). Your abilities: ${abilities}.`
+    + `\n\nIf the player directly addressed you or asked you to do something (scout, check, go, find out, guard, hold, fetch, watch…), treat it as an ORDER to carry out THIS turn — do it, and be ready to report what you find. Do not merely react to it, and never hand the decision back to the player. If you're asked to scout or look ahead, choose SCOUT.`
     + `\n\n${INNER_READ_INSTRUCTION(role.name)}`
-  const usr = `${serializeForPrompt(gs, campaign, node)}\n\nWhat just happened: ${situation}\n\nYour private read, then your DECISION line.`
+  const usr = `${serializeForPrompt(gs, campaign, node)}\n\n${playerAction ? `The player just said/did: "${playerAction}"\n\n` : ''}What else just happened: ${situation}\n\nYour private read, then your DECISION line.`
   const raw = (await streamChatCompletion({
     messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
     model: modelForJob('companionRead'), maxTokens: maxTokensForJob('companionRead'), temperature: 0.9,
@@ -140,15 +146,19 @@ export async function companionInnerRead({ campaign, node, gs, botId, mood, role
 }
 
 // ── Companion action (Pass 2) ──────────────────────────────────────────────────
-export async function companionAction({ campaign, node, gs, botId, mood, role, decision, read, check, onChunk }) {
+export async function companionAction({ campaign, node, gs, botId, mood, role, decision, read, check, scoutIntel, onChunk }) {
   const modeLine = decision === 'INTIMATE'
     ? 'This is an intimate/flirtatious beat toward the player or a companion — play it in character with your current mood.'
     : decision === 'SOCIAL'
       ? 'You are working an NPC — persuading, deceiving, intimidating, or seducing.'
       : `You are acting: ${decision.toLowerCase()}.`
+  const scoutLine = (decision === 'SCOUT' && scoutIntel)
+    ? `\n\nYou scouted ahead. This is what you actually found — report it CONCRETELY to the party as you return (don't invent beyond it, and don't just say you'll go look — you already went): ${scoutIntel}`
+    : ''
   const sys = buildSystemPrompt(botId, mood)
     + `\n\nYou are ${role.name}, a ${role.race} ${role.class}. Narrate your action in third person, vivid but brief (1–3 sentences). Speak dialogue in "quotes". ${modeLine} Do not narrate other characters' choices or the player's actions, and never invent dice outcomes.`
     + (check ? `\n\nDICE OUTCOME of your action: ${String(check.tier).toUpperCase()}.` : '')
+    + scoutLine
     + `\n\nYour private read going in (never quote it, let it drive you): ${read}`
   const usr = `${serializeForPrompt(gs, campaign, node)}\n\nIt's your moment. Act as ${role.name}.`
   logPrompt('companionAction', sys, usr)

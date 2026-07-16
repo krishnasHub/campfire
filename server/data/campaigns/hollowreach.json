@@ -8,6 +8,24 @@
     "artStyle": "cinematic-fantasy",
     "primer": "The Hollow King stirs beneath the Deepwood, and his orc legions muster to seize the mountain passes before winter closes them. The last free settlement, Elsvale, guards the Emberseed — the one relic that can re-seal the Hollow King's barrow. A small band must carry it through orc-held marches to the hidden elf-sanctuary of Lithvael and end the threat before the snows trap everyone on the wrong side of the mountains. Magic is old and fading; the wild is dangerous; trust is scarce."
   },
+  "narrator": {
+    "name": "Elaneth, the Ashen Seer",
+    "persona": "an ancient elven seer who has watched the marches wither for an age; she speaks in a low, mythic cadence — grave, unhurried, addressing you the traveller directly as though the land itself remembers you. She names dread plainly and hope sparingly."
+  },
+  "map": {
+    "nodes": {
+      "n_elsvale": { "x": 33, "y": 88, "terrain": "village" },
+      "n_orccamp": { "x": 26, "y": 46, "terrain": "warcamp" },
+      "n_ford":    { "x": 64, "y": 70, "terrain": "river" },
+      "n_pursuit": { "x": 46, "y": 60, "terrain": "forest" },
+      "n_passes":  { "x": 40, "y": 30, "terrain": "mountains" },
+      "n_gate":    { "x": 52, "y": 16, "terrain": "gate" },
+      "n_barrow":  { "x": 62, "y": 8,  "terrain": "barrow" },
+      "end_dawn":  { "x": 80, "y": 7,  "terrain": "barrow" },
+      "end_hollow":{ "x": 70, "y": 4,  "terrain": "barrow" },
+      "end_cost":  { "x": 52, "y": 5,  "terrain": "barrow" }
+    }
+  },
   "roles": [
     {
       "id": "r_woodland_elf",

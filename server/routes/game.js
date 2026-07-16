@@ -6,13 +6,23 @@ import { createSave, loadSave, listSaves, updateMoods, commitRound, loadTranscri
 import { nodeById, advance, triggeredSideQuests, chooseBranchTrace, conditionFlags } from '../services/storyGraph.js'
 import { resolve } from '../services/dice.js'
 import { spendCost } from '../services/roles.js'
-import { getBaselineTraits } from '../services/bots.js'
+import { getBaselineTraits, BOTS } from '../services/bots.js'
 import { parseIntent, narrateGM, adjudicate, companionInnerRead, companionAction, companionCheckFor, extractImageTag, extractOptions } from '../services/gm.js'
 import { generateImage } from '../services/imageGen.js'
 
 const router = Router()
 
 const publicNode = (n) => n && { id: n.id, title: n.title, type: n.type, setup: n.setup, objectives: n.objectives || [] }
+
+// Deterministic scout-order detection so a companion actually obeys "go scout ahead",
+// regardless of how the reasoning model classifies its own decision.
+const SCOUT_RE = /\b(scout|reconnoit|recon|look ahead|scan ahead|check the (?:road|path|woods|forest|river|way|area|trail|surroundings)|see what(?:'s| is| lies)?\s*(?:ahead|out there)|report back|tell (?:us|me) what you see|survey the|case the|eyes? (?:on|ahead))\b/i
+const addressesCompanion = (action, role, botFirst) => {
+  const a = action.toLowerCase()
+  const roleFirst = (role?.name || '').split(/[\s,]/)[0].toLowerCase()
+  return (roleFirst && a.includes(roleFirst)) || (botFirst && a.includes(botFirst.toLowerCase()))
+}
+const SCOUT_TAGS = new Set(['scout', 'stealth', 'perception', 'ranged'])
 const roleAgi = (campaign, roleId) => campaign.roles.find(r => r.id === roleId)?.stats?.agility ?? 0
 
 function groundImagePrompt(campaign, gs, pi) {
@@ -143,6 +153,7 @@ router.post('/:id/round', async (req, res) => {
 
   const campaign = getCampaign(save.campaignId)
   const gs = save.gameState
+  if (!gs.discovered) gs.discovered = [gs.story.mainNodeId] // back-compat for older saves
   const round = (save.round || 0) + 1
   const node = () => nodeById(campaign, gs.story.mainNodeId)
 
@@ -229,6 +240,9 @@ router.post('/:id/round', async (req, res) => {
 
     // 5. Companion turns (initiative-lite by agility)
     let lastNarration = gmText
+    const scoutOrder = SCOUT_RE.test(action)
+    const roleFirstNames = campaign.roles.map(r => (r.name || '').split(/[\s,]/)[0].toLowerCase()).filter(Boolean)
+    const mentionsSomeRole = roleFirstNames.some(n => action.toLowerCase().includes(n))
     const companionRoleIds = Object.entries(gs.party)
       .filter(([, p]) => p.actor !== 'user' && (p.hp ?? 1) > 0)
       .map(([rid]) => rid)
@@ -242,7 +256,17 @@ router.post('/:id/round', async (req, res) => {
       console.log(`[round]   -- companion turn: ${botId} as ${roleId} --`)
       send({ event: 'companion_start', botId, roleId })
 
-      const { read, decision } = await companionInnerRead({ campaign, node: node(), gs, botId, mood, role, situation: lastNarration.slice(0, 700) })
+      let { read, decision } = await companionInnerRead({ campaign, node: node(), gs, botId, mood, role, situation: lastNarration.slice(0, 700), playerAction: action })
+      // Deterministic obedience: if the player ordered a scout (and addressed this
+      // companion, or gave a generic order and this one is the scout type), force SCOUT.
+      if (scoutOrder) {
+        const botFirst = BOTS[botId]?.name?.split(' ')[0]
+        const scoutTagged = (role.tags || []).some(t => SCOUT_TAGS.has(t))
+        if (addressesCompanion(action, role, botFirst) || (!mentionsSomeRole && scoutTagged)) {
+          if (decision !== 'SCOUT') console.log(`[round]   ${botId} obeys scout order (was ${decision} → SCOUT)`)
+          decision = 'SCOUT'
+        }
+      }
       if (read) send({ event: 'companion_innerlife', botId, roleId, chunk: read })
       if (decision === 'PASS') {
         send({ event: 'companion_pass', botId, roleId })
@@ -262,8 +286,19 @@ router.post('/:id/round', async (req, res) => {
         transcript.push({ type: 'roll', actor: botId, roleId, ...r })
       }
 
+      // SCOUT reveals what lies down the paths ahead — lifts fog + gives real intel to report.
+      let scoutIntel = null
+      if (decision === 'SCOUT') {
+        const cur = node()
+        const targets = (cur?.branches || []).filter(b => b.to !== cur.id).map(b => nodeById(campaign, b.to)).filter(n => n && n.type !== 'ending')
+        const revealed = []
+        for (const t of targets) if (!gs.discovered.includes(t.id)) { gs.discovered.push(t.id); revealed.push(t.id) }
+        if (targets.length) scoutIntel = targets.map(t => `${t.title} — ${t.setup}`).join('  ||  ')
+        if (revealed.length) { send({ event: 'discovered', nodes: revealed }); console.log(`[round]   SCOUT by ${botId} revealed: [${revealed}]`) }
+      }
+
       send({ event: 'companion_action_start', botId, roleId, decision })
-      let actText = await companionAction({ campaign, node: node(), gs, botId, mood, role, decision, read, check: cCheck, onChunk: ch => send({ event: 'companion_chunk', botId, roleId, chunk: ch }) })
+      let actText = await companionAction({ campaign, node: node(), gs, botId, mood, role, decision, read, check: cCheck, scoutIntel, onChunk: ch => send({ event: 'companion_chunk', botId, roleId, chunk: ch }) })
       const cImg = extractImageTag(actText)
       actText = cImg.cleaned
       send({ event: 'companion_done', botId, roleId, content: actText })

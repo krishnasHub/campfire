@@ -35,6 +35,7 @@ export function buildInitialState(campaign, party) {
     flags: {},
     counters: {},
     relationships: {},
+    discovered: [campaign.mainQuest.startNodeId], // node ids the party knows about (fog-of-war)
     lastCheck: null,
     story: { mainNodeId: campaign.mainQuest.startNodeId, sideStack: [], completedNodes: [], completedSideQuests: [], beatTurns: 0 },
   }

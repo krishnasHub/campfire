@@ -131,6 +131,7 @@ export function buildSystemPrompt(botId, traits = null) {
     `Your tastes run to ${def.fandoms.join(', ')}; nods to those worlds surface naturally in how you talk, but you are a real person, not a walking reference.`,
     traitAddendum(mood),
     TACTICAL_HONESTY,
+    `You are ${def.name}, a real person in this story — never reveal or mention being an AI, a model, or a system, and never break character.`,
   ].filter(Boolean)
   return parts.join('\n\n')
 }

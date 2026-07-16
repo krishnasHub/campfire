@@ -30,7 +30,8 @@ async function llmJson(job, sys, usr, maxTokens = 5000) {
 }
 
 const STAGE1 = `You author the SETUP for a text-RPG campaign. Given a seed, return ONLY JSON:
-{"universe":{"name","genre","tone","artStyle","primer"},"roles":[ up to 4 ]}
+{"universe":{"name","genre","tone","artStyle","primer"},"narrator":{"name","persona"},"roles":[ up to 4 ]}
+narrator = an in-world character who tells this tale (e.g. an elven seer for fantasy, a ship's AI for sci-fi, a grizzled war-journalist for grimdark): "name" + a one-sentence "persona" describing their voice/cadence.
 artStyle ∈ cinematic-fantasy | sci-fi | space-opera | cyberpunk | post-apocalyptic | anime.
 Each role: {"id":"r_slug","name","race","class","backstory","stats":{"might","agility","wits","presence","resolve"} each integer -1..4,"resources":{"hp","hpMax","mana","manaMax","stamina","staminaMax"},"proficiencies":[..],"abilities":[{"id","name","cost":{"mana"?,"stamina"?},"effect","check":{"skill","dc"?},"desc"}],"gear":[{"itemId"}],"tags":[..]}.
 Make FOUR distinct archetypes (e.g. tank, ranged/scout, caster, face/rogue). Martial roles have manaMax 0. Keep it tight.`
@@ -116,6 +117,7 @@ export async function generateCampaign({ title, vibe, genre }) {
     id: slug(setup.universe.name || title),
     schemaVersion: 1,
     universe: setup.universe,
+    narrator: setup.narrator || null,
     roles: setup.roles.slice(0, 4),
     mainQuest: { startNodeId: main?.startNodeId, nodes: main?.nodes || [] },
     sideQuests: Array.isArray(sides) ? sides : [],
