@@ -5,6 +5,8 @@ import { createWriteStream } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import './services/db.js' // opens the SQLite DB + runs migrations at boot
+import campaignsRouter from './routes/campaigns.js'
+import gameRouter from './routes/game.js'
 
 // Mirror all console output to server.log in the project root so logs can be read externally
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -30,9 +32,8 @@ const PORT = process.env.PORT || 3001
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 
-// Routers are mounted here as they are built:
-//   app.use('/api/campaigns', campaignsRouter)
-//   app.use('/api/game', gameRouter)
+app.use('/api/campaigns', campaignsRouter)
+app.use('/api/game', gameRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', apiKeySet: !!process.env.VENICE_API_KEY })
