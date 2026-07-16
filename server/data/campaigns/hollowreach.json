@@ -1,0 +1,302 @@
+{
+  "id": "hollowreach",
+  "schemaVersion": 1,
+  "universe": {
+    "name": "Hollowreach",
+    "genre": "epic high-fantasy",
+    "tone": "heroic but weathered — hope against a rising dark",
+    "artStyle": "cinematic-fantasy",
+    "primer": "The Hollow King stirs beneath the Deepwood, and his orc legions muster to seize the mountain passes before winter closes them. The last free settlement, Elsvale, guards the Emberseed — the one relic that can re-seal the Hollow King's barrow. A small band must carry it through orc-held marches to the hidden elf-sanctuary of Lithvael and end the threat before the snows trap everyone on the wrong side of the mountains. Magic is old and fading; the wild is dangerous; trust is scarce."
+  },
+  "roles": [
+    {
+      "id": "r_woodland_elf",
+      "name": "Aelith",
+      "race": "Wood Elf",
+      "class": "Ranger",
+      "backstory": "A scout of the Deepwood eaves who has watched the orc-fires creep closer each season. She reads terrain the way others read faces.",
+      "stats": { "might": 1, "agility": 3, "wits": 3, "presence": 1, "resolve": 2 },
+      "resources": { "hp": 16, "hpMax": 16, "mana": 4, "manaMax": 4, "stamina": 6, "staminaMax": 6 },
+      "proficiencies": ["stealth", "perception", "ranged", "lore"],
+      "abilities": [
+        { "id": "elfsight", "name": "Elf-sight", "cost": { "mana": 0 }, "effect": "scout", "check": { "skill": "perception", "dc": 12 }, "desc": "Perch and read a location at range before committing." },
+        { "id": "aimed_shot", "name": "Aimed Shot", "cost": { "stamina": 1 }, "effect": "attack:ranged", "check": { "skill": "ranged" }, "desc": "A patient, precise bowshot." },
+        { "id": "fade", "name": "Fade", "cost": { "stamina": 1 }, "effect": "stealth", "check": { "skill": "stealth" }, "desc": "Melt into cover and move unseen." }
+      ],
+      "gear": [{ "itemId": "longbow" }, { "itemId": "elfsight_lens" }],
+      "tags": ["scout", "ranged", "perception"]
+    },
+    {
+      "id": "r_dwarf",
+      "name": "Borin Stonehand",
+      "race": "Dwarf",
+      "class": "Warrior",
+      "backstory": "An exile of the deep halls who swore to see the Hollow King's barrow sealed for good. He stands where the line must hold.",
+      "stats": { "might": 4, "agility": 1, "wits": 1, "presence": 2, "resolve": 3 },
+      "resources": { "hp": 26, "hpMax": 26, "mana": 0, "manaMax": 0, "stamina": 10, "staminaMax": 10 },
+      "proficiencies": ["melee", "athletics", "intimidate"],
+      "abilities": [
+        { "id": "shield_wall", "name": "Shield Wall", "cost": { "stamina": 2 }, "effect": "assist", "desc": "Plant yourself in front of an ally and soak the blow." },
+        { "id": "cleave", "name": "Cleave", "cost": { "stamina": 3 }, "effect": "attack:melee", "check": { "skill": "melee" }, "desc": "A heavy two-handed swing." },
+        { "id": "roar", "name": "Roar", "cost": { "stamina": 1 }, "effect": "social", "check": { "skill": "intimidate" }, "desc": "A bellow that rattles nerves." }
+      ],
+      "gear": [{ "itemId": "battleaxe" }, { "itemId": "heavy_shield" }],
+      "tags": ["tank", "protector"]
+    },
+    {
+      "id": "r_human_warden",
+      "name": "Kestrel Vane",
+      "race": "Human",
+      "class": "Warden",
+      "backstory": "A borderland warden who has kept Elsvale's roads open for a decade. People follow her because she has never once left them behind.",
+      "stats": { "might": 2, "agility": 2, "wits": 2, "presence": 3, "resolve": 2 },
+      "resources": { "hp": 20, "hpMax": 20, "mana": 3, "manaMax": 3, "stamina": 8, "staminaMax": 8 },
+      "proficiencies": ["melee", "persuade", "tactics"],
+      "abilities": [
+        { "id": "rally", "name": "Rally", "cost": { "mana": 1 }, "effect": "assist", "desc": "Steady the party — the next ally acts with heart." },
+        { "id": "riposte", "name": "Riposte", "cost": { "stamina": 2 }, "effect": "attack:melee", "check": { "skill": "melee" }, "desc": "Turn a blow aside and answer it." },
+        { "id": "parley", "name": "Parley", "cost": { "mana": 0 }, "effect": "social", "check": { "skill": "persuade" }, "desc": "Talk a tense moment down." }
+      ],
+      "gear": [{ "itemId": "longsword" }, { "itemId": "warhorn" }],
+      "tags": ["leader", "social"]
+    },
+    {
+      "id": "r_halfling",
+      "name": "Pip Underbough",
+      "race": "Halfling",
+      "class": "Burglar",
+      "backstory": "A light-fingered wanderer who talked their way onto this doomed errand for reasons they keep changing. Somehow always where the lock is.",
+      "stats": { "might": 1, "agility": 4, "wits": 2, "presence": 2, "resolve": 1 },
+      "resources": { "hp": 14, "hpMax": 14, "mana": 2, "manaMax": 2, "stamina": 7, "staminaMax": 7 },
+      "proficiencies": ["stealth", "sleight", "deceive", "traps"],
+      "abilities": [
+        { "id": "cheap_shot", "name": "Cheap Shot", "cost": { "stamina": 1 }, "effect": "attack:ranged", "check": { "skill": "sleight" }, "desc": "A thrown blade from an unseen angle." },
+        { "id": "vanish", "name": "Vanish", "cost": { "mana": 1 }, "effect": "stealth", "check": { "skill": "stealth" }, "desc": "A smoke-quick disappearance." },
+        { "id": "fast_talk", "name": "Fast-talk", "cost": { "mana": 0 }, "effect": "social", "check": { "skill": "deceive" }, "desc": "A confident lie at speed." }
+      ],
+      "gear": [{ "itemId": "daggers" }, { "itemId": "lockpicks" }],
+      "tags": ["rogue", "stealth", "finesse"]
+    }
+  ],
+  "mainQuest": {
+    "startNodeId": "n_elsvale",
+    "nodes": [
+      {
+        "id": "n_elsvale",
+        "title": "Departure from Elsvale",
+        "type": "beat",
+        "setup": "Dawn over Elsvale's palisade. The Emberseed — a warm amber shard the size of a fist — is wrapped and stowed. Two roads lead into the marches: the forest track through the Deepwood eaves, or the longer river road past the Broken Ford.",
+        "objectives": [{ "id": "departed", "desc": "Set out from Elsvale with the Emberseed" }],
+        "flags": ["route_forest", "route_river"],
+        "onImage": "auto",
+        "requireObjectivesToLeave": false,
+        "branches": [
+          { "id": "e_forest", "to": "n_orccamp", "priority": 10, "when": { "flag": "route_forest" }, "label": "Take the forest track" },
+          { "id": "e_river", "to": "n_ford", "priority": 10, "when": { "flag": "route_river" }, "label": "Take the river road" },
+          { "id": "e_stay", "to": "n_elsvale", "priority": 100, "when": { "always": true }, "label": "Still at the gate, deciding" }
+        ]
+      },
+      {
+        "id": "n_orccamp",
+        "title": "The Orc War-Camp",
+        "type": "beat",
+        "setup": "The forest track bends around a valley crawling with orc-fires — a war-camp astride the only pass. Sentries patrol the treeline. There is a caged figure near the command tent.",
+        "objectives": [{ "id": "past_camp", "desc": "Get past the orc war-camp" }],
+        "flags": ["camp_slipped", "camp_routed", "alarm_raised"],
+        "spawns": ["orc_sentries"],
+        "onImage": "auto",
+        "requireObjectivesToLeave": false,
+        "branches": [
+          { "id": "o_alarm", "to": "n_pursuit", "priority": 5, "when": { "flag": "alarm_raised" }, "label": "The alarm goes up — run!" },
+          { "id": "o_pass", "to": "n_passes", "priority": 10, "when": { "any": [{ "flag": "camp_slipped" }, { "flag": "camp_routed" }] }, "label": "Past the camp, into the pass" },
+          { "id": "o_stay", "to": "n_orccamp", "priority": 100, "when": { "always": true }, "label": "Still pinned at the treeline" }
+        ]
+      },
+      {
+        "id": "n_ford",
+        "title": "The Broken Ford",
+        "type": "beat",
+        "setup": "The river road reaches a half-collapsed stone bridge over a churning ravine. A bridge-troll squats on the far span, tolls or teeth its only vocabulary.",
+        "objectives": [{ "id": "crossed", "desc": "Cross the ravine" }],
+        "flags": ["troll_defeated", "troll_bribed", "bridge_collapsed"],
+        "spawns": ["troll_bridge"],
+        "onImage": "auto",
+        "requireObjectivesToLeave": false,
+        "branches": [
+          { "id": "f_collapse", "to": "n_pursuit", "priority": 5, "when": { "flag": "bridge_collapsed" }, "label": "The bridge gives way" },
+          { "id": "f_across", "to": "n_passes", "priority": 10, "when": { "any": [{ "flag": "troll_defeated" }, { "flag": "troll_bribed" }] }, "label": "Across the ford" },
+          { "id": "f_stay", "to": "n_ford", "priority": 100, "when": { "always": true }, "label": "Still facing the troll" }
+        ]
+      },
+      {
+        "id": "n_pursuit",
+        "title": "Hunted",
+        "type": "beat",
+        "setup": "Horns behind you, torches through the trees. The marches have woken and something is on your trail. You need to break line of sight and lose them before the high ground.",
+        "objectives": [{ "id": "shaken", "desc": "Shake the pursuit" }],
+        "flags": ["shaken_pursuit"],
+        "onImage": "auto",
+        "requireObjectivesToLeave": false,
+        "branches": [
+          { "id": "p_lost", "to": "n_passes", "priority": 10, "when": { "flag": "shaken_pursuit" }, "label": "Lost them in the pines" },
+          { "id": "p_stay", "to": "n_pursuit", "priority": 100, "when": { "always": true }, "label": "Still being hunted" }
+        ]
+      },
+      {
+        "id": "n_passes",
+        "title": "The High Passes",
+        "type": "beat",
+        "setup": "Above the treeline the wind turns to knives and a blizzard is closing in. Somewhere ahead is the Veiled Gate. Off the path, a merchant caravan lies stranded in the drifts — and old tales speak of a wyrm's hoard in a side-corrie.",
+        "objectives": [{ "id": "reached_gate", "desc": "Reach the Veiled Gate through the storm" }],
+        "flags": ["gate_reached", "seek_hoard"],
+        "onImage": "auto",
+        "requireObjectivesToLeave": false,
+        "branches": [
+          { "id": "h_gate", "to": "n_gate", "priority": 10, "when": { "flag": "gate_reached" }, "label": "Reach the Veiled Gate" },
+          { "id": "h_stay", "to": "n_passes", "priority": 100, "when": { "always": true }, "label": "Still climbing through the storm" }
+        ]
+      },
+      {
+        "id": "n_gate",
+        "title": "The Veiled Gate of Lithvael",
+        "type": "beat",
+        "setup": "A sheer cliff face carved with faded elvish warding-glyphs. No door is visible. The Emberseed grows warm here. The way in must be earned, not forced.",
+        "objectives": [{ "id": "gate_opened", "desc": "Open the Veiled Gate" }],
+        "flags": ["gate_opened"],
+        "onImage": "required",
+        "requireObjectivesToLeave": true,
+        "branches": [
+          { "id": "g_open", "to": "n_barrow", "priority": 10, "when": { "flag": "gate_opened" }, "label": "The gate opens" },
+          { "id": "g_stay", "to": "n_gate", "priority": 100, "when": { "always": true }, "label": "The warding holds" }
+        ]
+      },
+      {
+        "id": "n_barrow",
+        "title": "The Hollow King's Barrow",
+        "type": "beat",
+        "setup": "Beyond Lithvael's sanctuary lies the barrow-mouth, breathing cold. The Hollow King's wraith-form gathers in the dark. The Emberseed must be set and the seal spoken — but the King will bargain, and the ritual asks a price.",
+        "objectives": [{ "id": "confront_king", "desc": "Confront the Hollow King and decide the barrow's fate" }],
+        "flags": ["sealed", "corrupted", "pyrrhic"],
+        "spawns": ["hollow_wraith"],
+        "onImage": "required",
+        "requireObjectivesToLeave": false,
+        "branches": [
+          { "id": "b_sealed", "to": "end_dawn", "priority": 10, "when": { "flag": "sealed" }, "label": "The barrow is sealed" },
+          { "id": "b_corrupted", "to": "end_hollow", "priority": 10, "when": { "flag": "corrupted" }, "label": "The King's bargain is taken" },
+          { "id": "b_pyrrhic", "to": "end_cost", "priority": 10, "when": { "flag": "pyrrhic" }, "label": "Sealed, but at a terrible cost" },
+          { "id": "b_stay", "to": "n_barrow", "priority": 100, "when": { "always": true }, "label": "The confrontation continues" }
+        ]
+      },
+      {
+        "id": "end_dawn",
+        "title": "A Held Dawn",
+        "type": "ending",
+        "setup": "The Emberseed flares and the barrow-mouth closes like a healing wound. The Hollow King's whisper thins to nothing. Winter comes, but the passes hold, and Elsvale will see spring."
+      },
+      {
+        "id": "end_hollow",
+        "title": "The Hollow Bargain",
+        "type": "ending",
+        "setup": "The King offered, and someone said yes. The barrow stays open a while longer, and the price of that will be paid slowly, in the dark, for years."
+      },
+      {
+        "id": "end_cost",
+        "title": "The Price of Dawn",
+        "type": "ending",
+        "setup": "The seal holds — it cost you someone to set it. The marches are safe. The walk home is quieter than the walk out."
+      }
+    ]
+  },
+  "sideQuests": [
+    {
+      "id": "sq_orc_captive",
+      "trigger": { "locationVisited": "n_orccamp" },
+      "entryNodeId": "sqn_captive_1",
+      "weave": "parallel",
+      "onComplete": [{ "setFlag": "has_ally", "to": true }, { "reward": { "itemId": "ritual_intel" } }],
+      "nodes": [
+        {
+          "id": "sqn_captive_1",
+          "title": "The Caged Scout",
+          "type": "side_entry",
+          "setup": "The caged figure is an Elsvale scout taken days ago. Free them and you gain a guide who knows the barrow-ways.",
+          "objectives": [{ "id": "scout_freed", "desc": "Free the caged Elsvale scout" }],
+          "flags": ["scout_freed"],
+          "requireObjectivesToLeave": true,
+          "branches": [
+            { "id": "sc_done", "to": "sqn_captive_done", "priority": 10, "when": { "flag": "scout_freed" }, "label": "The scout is free" },
+            { "id": "sc_stay", "to": "sqn_captive_1", "priority": 100, "when": { "always": true }, "label": "Still working at the cage" }
+          ]
+        },
+        { "id": "sqn_captive_done", "title": "A Debt Owed", "type": "ending", "setup": "The scout melts into the trees and swears to meet you at the barrow. You've bought yourself an ally." }
+      ]
+    },
+    {
+      "id": "sq_stranded_caravan",
+      "trigger": { "locationVisited": "n_passes" },
+      "entryNodeId": "sqn_caravan_1",
+      "weave": "parallel",
+      "onComplete": [{ "setFlag": "has_supplies", "to": true }, { "reward": { "itemId": "cold_cloak" } }],
+      "nodes": [
+        {
+          "id": "sqn_caravan_1",
+          "title": "Stranded in the Drifts",
+          "type": "side_entry",
+          "setup": "A merchant caravan is buried to the axles, its people freezing. Dig them out and they'll share what they carry.",
+          "objectives": [{ "id": "caravan_saved", "desc": "Save the stranded caravan" }],
+          "flags": ["caravan_saved"],
+          "requireObjectivesToLeave": true,
+          "branches": [
+            { "id": "cv_done", "to": "sqn_caravan_done", "priority": 10, "when": { "flag": "caravan_saved" }, "label": "The caravan is saved" },
+            { "id": "cv_stay", "to": "sqn_caravan_1", "priority": 100, "when": { "always": true }, "label": "Still digging" }
+          ]
+        },
+        { "id": "sqn_caravan_done", "title": "Warm Thanks", "type": "ending", "setup": "The merchants press supplies and a warm cloak on you, and point out the safest line to the gate." }
+      ]
+    },
+    {
+      "id": "sq_wyrm_hoard",
+      "trigger": { "flag": "seek_hoard" },
+      "entryNodeId": "sqn_wyrm_1",
+      "weave": "parallel",
+      "onComplete": [{ "setFlag": "has_relic_weapon", "to": true }, { "reward": { "itemId": "relic_blade" } }],
+      "nodes": [
+        {
+          "id": "sqn_wyrm_1",
+          "title": "The Wyrm's Corrie",
+          "type": "side_entry",
+          "setup": "A side-corrie exhales sulphur. A young wyrm sleeps atop a glinting hoard — and one blade in it hums with old power. Waking it is a very bad idea.",
+          "objectives": [{ "id": "hoard_taken", "desc": "Claim the relic from the wyrm's hoard" }],
+          "flags": ["hoard_taken"],
+          "spawns": ["young_wyrm"],
+          "requireObjectivesToLeave": true,
+          "branches": [
+            { "id": "wy_done", "to": "sqn_wyrm_done", "priority": 10, "when": { "flag": "hoard_taken" }, "label": "The relic is yours" },
+            { "id": "wy_stay", "to": "sqn_wyrm_1", "priority": 100, "when": { "always": true }, "label": "Still creeping toward the hoard" }
+          ]
+        },
+        { "id": "sqn_wyrm_done", "title": "Old Power", "type": "ending", "setup": "The relic blade comes free without waking the wyrm — or you fought your way clear. Either way, it's yours now." }
+      ]
+    }
+  ],
+  "bestiary": {
+    "orc_sentries": { "hp": 18, "hpMax": 18, "defense": 12, "attack": "+3", "threat": "medium" },
+    "troll_bridge": { "hp": 40, "hpMax": 40, "defense": 14, "attack": "+6", "threat": "high" },
+    "hollow_wraith": { "hp": 30, "hpMax": 30, "defense": 15, "attack": "+5", "threat": "high" },
+    "young_wyrm": { "hp": 55, "hpMax": 55, "defense": 16, "attack": "+7", "threat": "deadly" }
+  },
+  "items": {
+    "emberseed": { "name": "The Emberseed", "slot": "quest", "desc": "A warm amber shard that can re-seal the Hollow King's barrow." },
+    "longbow": { "name": "Elven Longbow", "slot": "weapon" },
+    "elfsight_lens": { "name": "Elf-sight Lens", "slot": "trinket", "grants": ["perception+1"] },
+    "battleaxe": { "name": "Dwarven Battleaxe", "slot": "weapon" },
+    "heavy_shield": { "name": "Heavy Shield", "slot": "offhand" },
+    "longsword": { "name": "Warden's Longsword", "slot": "weapon" },
+    "warhorn": { "name": "Warhorn", "slot": "trinket" },
+    "daggers": { "name": "Twin Daggers", "slot": "weapon" },
+    "lockpicks": { "name": "Lockpicks", "slot": "tool" },
+    "ritual_intel": { "name": "Barrow-ways Knowledge", "slot": "quest", "grants": ["barrow_advantage"] },
+    "cold_cloak": { "name": "Fur-lined Cloak", "slot": "armor", "grants": ["cold_resist"] },
+    "relic_blade": { "name": "Humming Relic Blade", "slot": "weapon", "grants": ["might+1"] }
+  }
+}

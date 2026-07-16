@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment files with secrets
+.env
+server/.env
+client/.env
+
+# Build output
+client/dist/
+
+# Server runtime log
+server.log
+
+# SQLite database (runtime saves — not committed; authored campaigns ARE committed)
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+
+# Editor / OS
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Claude project files
+.claude/
