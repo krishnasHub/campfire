@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { postJSON } from '../api.js'
+import { useState, useEffect } from 'react'
+import { getJSON, postJSON } from '../api.js'
 import MoodSliders from '../components/MoodSliders.jsx'
+import CharacterSheet from '../components/CharacterSheet.jsx'
 
 function defaultAssign(otherRoles, companions) {
   const a = {}
@@ -18,6 +19,25 @@ export default function SetupScreen({ campaign, companions, userName, onBegin, o
   const [moods, setMoods] = useState({})
   const [openMood, setOpenMood] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [snaps, setSnaps] = useState([])
+  const [snapsLoading, setSnapsLoading] = useState(true)
+  const [expandRole, setExpandRole] = useState(null)
+
+  useEffect(() => {
+    let ok = true
+    setSnapsLoading(true)
+    getJSON(`/api/campaigns/${campaign.id}/snapshots`)
+      .then(d => { if (ok) { setSnaps(d.urls || []); setSnapsLoading(false) } })
+      .catch(() => { if (ok) setSnapsLoading(false) })
+    return () => { ok = false }
+  }, [campaign.id])
+
+  function refreshSnaps() {
+    setSnapsLoading(true); setSnaps([])
+    getJSON(`/api/campaigns/${campaign.id}/snapshots?refresh=1`)
+      .then(d => { setSnaps(d.urls || []); setSnapsLoading(false) })
+      .catch(() => setSnapsLoading(false))
+  }
 
   function pickRole(id) {
     setUserRoleId(id)
@@ -51,6 +71,21 @@ export default function SetupScreen({ campaign, companions, userName, onBegin, o
       <div className="text-xs uppercase tracking-wide text-stone-500 mt-1">{campaign.genre} · {campaign.tone}</div>
       <p className="text-sm text-stone-400 mt-3 max-w-3xl">{campaign.primer}</p>
 
+      <section className="mt-5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] uppercase tracking-wide text-stone-500">Glimpses of the tale</div>
+          <button onClick={refreshSnaps} disabled={snapsLoading} className="text-[11px] text-stone-400 hover:text-ember disabled:opacity-40">↻ new</button>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {snapsLoading && snaps.length === 0 && Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-28 w-44 shrink-0 rounded bg-ash-800 border border-ash-600 animate-pulse" />
+          ))}
+          {snaps.map((u, i) => (
+            <img key={i} src={u} alt="a glimpse of the story" className="h-28 w-auto rounded border border-ash-600 shrink-0 fade-in" />
+          ))}
+        </div>
+      </section>
+
       <section className="mt-8">
         <h2 className="text-lg font-serif text-stone-300 mb-1">Choose your character</h2>
         <p className="text-xs text-stone-500 mb-3">You play one. Your companions play the rest. Locked once you begin.</p>
@@ -59,8 +94,10 @@ export default function SetupScreen({ campaign, companions, userName, onBegin, o
             const mine = r.id === userRoleId
             return (
               <button key={r.id} onClick={() => pickRole(r.id)}
-                className={`text-left rounded-lg p-3 border transition-colors ${mine ? 'border-ember bg-ash-700' : 'border-ash-600 bg-ash-800 hover:border-stone-500'}`}>
-                <div className="font-serif text-stone-100">{r.name}</div>
+                className={`relative text-left rounded-lg p-3 border transition-colors ${mine ? 'border-ember bg-ash-700' : 'border-ash-600 bg-ash-800 hover:border-stone-500'}`}>
+                <span onClick={e => { e.stopPropagation(); setExpandRole(r) }} title="Details"
+                  className="absolute top-1.5 right-1.5 text-stone-500 hover:text-ember cursor-pointer text-sm">ⓘ</span>
+                <div className="font-serif text-stone-100 pr-4">{r.name}</div>
                 <div className="text-[10px] text-stone-500">{r.race} · {r.class}</div>
                 <div className="flex gap-1 mt-2 flex-wrap">
                   {Object.entries(r.stats).map(([k, v]) => (
@@ -116,6 +153,12 @@ export default function SetupScreen({ campaign, companions, userName, onBegin, o
           {busy ? 'Kindling the fire…' : 'Begin the story →'}
         </button>
       </div>
+
+      {expandRole && (
+        <CharacterSheet campaignId={campaign.id} role={expandRole}
+          actorBot={companions.find(c => c.id === assignments[expandRole.id])}
+          onClose={() => setExpandRole(null)} />
+      )}
     </div>
   )
 }

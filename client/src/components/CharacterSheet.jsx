@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { postJSON } from '../api.js'
 
-export default function CharacterSheet({ sessionId, role, actorBot, onClose }) {
+export default function CharacterSheet({ campaignId, role, actorBot, onClose }) {
   const [portrait, setPortrait] = useState(null)
   const [loadingImg, setLoadingImg] = useState(true)
 
   useEffect(() => {
     let ok = true
-    postJSON(`/api/game/${sessionId}/portrait`, { roleId: role.id })
+    postJSON(`/api/campaigns/${campaignId}/portrait`, { roleId: role.id })
       .then(r => { if (ok) { setPortrait(r.url || null); setLoadingImg(false) } })
       .catch(() => { if (ok) setLoadingImg(false) })
     return () => { ok = false }
-  }, [sessionId, role.id])
+  }, [campaignId, role.id])
 
   return (
     <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 fade-in" onClick={onClose}>

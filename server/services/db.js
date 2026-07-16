@@ -53,6 +53,16 @@ const MIGRATIONS = [
       );
     `)
   },
+  // v2 -> v3: story snapshots (a small gallery) cached per campaign
+  (d) => {
+    d.exec(`
+      CREATE TABLE snapshots (
+        campaignId TEXT PRIMARY KEY,
+        urls       TEXT NOT NULL,     -- JSON array of data URLs
+        createdAt  TEXT NOT NULL
+      );
+    `)
+  },
 ]
 
 function migrate() {

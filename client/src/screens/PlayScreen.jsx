@@ -235,7 +235,7 @@ export default function PlayScreen({ sessionId, companions, onExit }) {
       </div>
 
       {expandRoleObj && (
-        <CharacterSheet sessionId={sessionId} role={expandRoleObj} actorBot={expandActor} onClose={() => setExpandRole(null)} />
+        <CharacterSheet campaignId={campaign?.id} role={expandRoleObj} actorBot={expandActor} onClose={() => setExpandRole(null)} />
       )}
       {showMap && <MapView sessionId={sessionId} onClose={() => setShowMap(false)} />}
     </div>

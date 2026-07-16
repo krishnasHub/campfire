@@ -74,3 +74,12 @@ export function getPortrait(key) {
 export function setPortrait(key, url) {
   db.prepare('INSERT OR REPLACE INTO portraits (key, url, createdAt) VALUES (?, ?, ?)').run(key, url, nowIso())
 }
+
+// ── Story snapshots (a small gallery, cached per campaign) ────────────────────
+export function getSnapshots(campaignId) {
+  const row = db.prepare('SELECT urls FROM snapshots WHERE campaignId = ?').get(campaignId)
+  return row ? JSON.parse(row.urls) : null
+}
+export function setSnapshots(campaignId, urls) {
+  db.prepare('INSERT OR REPLACE INTO snapshots (campaignId, urls, createdAt) VALUES (?, ?, ?)').run(campaignId, JSON.stringify(urls), nowIso())
+}
