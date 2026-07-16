@@ -79,6 +79,23 @@ export function chooseBranch(node, gs) {
   return null
 }
 
+// Debug helper: explain which branch fired (or why the party stayed). Pure — the
+// caller logs it. Useful when a story "won't advance" during a playthrough.
+export function chooseBranchTrace(node, gs) {
+  if (!node?.branches) return { chosen: null, gate: false, evaluated: [] }
+  const gate = node.requireObjectivesToLeave && !objectivesMet(node, gs)
+  const sorted = [...node.branches].sort((a, b) => (a.priority ?? 50) - (b.priority ?? 50))
+  const evaluated = []
+  let chosen = null
+  for (const b of sorted) {
+    const pass = evalCondition(b.when, gs)
+    const blocked = gate && b.to !== node.id
+    evaluated.push({ id: b.id, to: b.to, when: b.when, pass, blocked })
+    if (pass && !blocked && !chosen) chosen = b
+  }
+  return { chosen, gate, evaluated }
+}
+
 export function applyEntryEffects(node, gs) {
   if (!node?.entryEffects) return
   gs.flags = gs.flags || {}

@@ -32,6 +32,8 @@ export default function PlayScreen({ sessionId, companions, onExit }) {
 
   // ── stream event handler ────────────────────────────────────────────────────
   const handleEvent = useCallback((ev) => {
+    if (window.__cfDebug) console.debug('[cf]', ev.event, ev)
+    if (ev.event === 'error') console.error('[campfire] round error:', ev.error)
     const f = feedRef.current
     switch (ev.event) {
       case 'round_start': f.push({ id: uid(), type: 'system', text: `— round ${ev.round} —` }); break

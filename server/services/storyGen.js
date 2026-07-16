@@ -22,7 +22,10 @@ async function llmJson(job, sys, usr, maxTokens = 5000) {
     model, temperature: 0.7, maxTokens,
   })
   let parsed = safeParseJson(await call(modelForJob(job)))
-  if (!parsed) parsed = safeParseJson(await call(modelForJob('storyGenFallback')))
+  if (!parsed) {
+    console.warn(`[gen] ${job}: primary model parse failed — retrying on fallback model`)
+    parsed = safeParseJson(await call(modelForJob('storyGenFallback')))
+  }
   return parsed
 }
 
@@ -97,13 +100,17 @@ export function repairGraph(campaign) {
 // Generate a full campaign from a seed { title, vibe, genre }.
 export async function generateCampaign({ title, vibe, genre }) {
   const seed = `Seed title: "${title || 'Untitled'}". Vibe: ${vibe || 'an adventure'}. Genre lean: ${genre || 'fantasy'}.`
+  console.log(`[gen] ═══ generating from seed: ${JSON.stringify({ title, vibe, genre })}`)
 
   const setup = await llmJson('storyGen', STAGE1, seed, 4500)
-  if (!setup?.universe || !Array.isArray(setup.roles)) throw new Error('generation failed at setup stage')
+  if (!setup?.universe || !Array.isArray(setup.roles)) throw new Error('generation failed at setup stage (universe/roles did not parse)')
+  console.log(`[gen] stage1: universe="${setup.universe.name}" style=${setup.universe.artStyle} roles=${setup.roles.length}`)
 
   const ctx = `Universe: ${JSON.stringify(setup.universe)}\nRoles: ${setup.roles.map(r => `${r.id} ${r.name} (${r.class})`).join(', ')}`
   const main = await llmJson('storyGen', STAGE2, `${ctx}\n\nAuthor the main quest.`, 6000)
+  console.log(`[gen] stage2: main nodes=${main?.nodes?.length || 0} start=${main?.startNodeId}`)
   const sides = await llmJson('storyGen', STAGE3, `${ctx}\nMain nodes: ${(main?.nodes || []).map(n => n.id).join(', ')}\n\nAuthor the side quests.`, 4000)
+  console.log(`[gen] stage3: side quests=${Array.isArray(sides) ? sides.length : 0}`)
 
   let campaign = {
     id: slug(setup.universe.name || title),
@@ -117,5 +124,6 @@ export async function generateCampaign({ title, vibe, genre }) {
   }
   campaign = repairGraph(campaign)
   const report = lint(campaign)
+  console.log(`[gen] ═══ done: id=${campaign.id} lint.ok=${report.ok} errors=${report.errors.length} warnings=${report.warnings.length}`)
   return { campaign, lint: report }
 }

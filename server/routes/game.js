@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { getCampaign, campaignSummary } from '../services/campaigns.js'
 import { buildInitialState, applyDeltas } from '../services/gameState.js'
 import { createSave, loadSave, listSaves, updateMoods, commitRound, loadTranscript, deleteSave } from '../services/saves.js'
-import { nodeById, advance, triggeredSideQuests } from '../services/storyGraph.js'
+import { nodeById, advance, triggeredSideQuests, chooseBranchTrace } from '../services/storyGraph.js'
 import { resolve } from '../services/dice.js'
 import { spendCost } from '../services/roles.js'
 import { getBaselineTraits } from '../services/bots.js'
@@ -48,6 +48,7 @@ router.post('/start', (req, res) => {
   const gameState = buildInitialState(campaign, party)
   const sessionId = 'sess_' + randomUUID().slice(0, 8)
   const save = createSave({ sessionId, campaignId, userName, party: { ...party, locked: true }, moods: resolvedMoods, gameState })
+  console.log(`[start] session=${sessionId} campaign=${campaignId} — you play ${party.userRoleId}; ${Object.entries(party.assignments || {}).map(([r, b]) => `${b}→${r}`).join(', ')}`)
   res.json({ sessionId, save, campaign: campaignSummary(campaign) })
 })
 
@@ -88,6 +89,7 @@ router.post('/:id/opening', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache')
   res.setHeader('X-Accel-Buffering', 'no')
   const send = (o) => res.write(JSON.stringify(o) + '\n')
+  console.log(`[opening] session=${req.params.id} node=${gs.story.mainNodeId}`)
   send({ event: 'gm_start' })
   try {
     let text = await narrateGM({ campaign, node: nodeById(campaign, gs.story.mainNodeId), gs, opening: true, onChunk: ch => send({ event: 'gm_chunk', chunk: ch }) })
@@ -126,7 +128,15 @@ router.post('/:id/round', async (req, res) => {
   const transcript = [{ type: 'action', actor: 'user', text: action }]
   const pendingImages = []
 
+  // Log the advance decision (or why it stayed) — the most common "huh?" during play.
+  const logAdvance = (who, t) => {
+    if (t) { console.log(`[round]   ADVANCE (${who}): ${t.from} -> ${t.to} (${t.label})`); return }
+    const tr = chooseBranchTrace(node(), gs)
+    console.log(`[round]   stayed at ${node()?.id} (${who})${tr.gate ? ' [objectives-gate ON]' : ''}; branches: ${tr.evaluated.map(e => `${e.id}->${e.to}:${e.pass ? 'PASS' : 'no'}${e.blocked ? '(blk)' : ''}`).join(', ')}`)
+  }
+
   send({ event: 'round_start', round })
+  console.log(`[round] ═══ session=${req.params.id} round=${round} node=${gs.story.mainNodeId} action="${action.replace(/\s+/g, ' ').slice(0, 100)}"`)
 
   try {
     const userRole = campaign.roles.find(r => r.id === save.party.userRoleId)
@@ -155,12 +165,15 @@ router.post('/:id/round', async (req, res) => {
     // 3. Adjudicate (Pass B) + apply
     applyDeltas(gs, await adjudicate({ campaign, node: node(), gs, narration: gmText }))
     send({ event: 'state_update', gameState: gs })
+    console.log(`[round]   flags now: [${Object.keys(gs.flags).filter(k => gs.flags[k]).join(', ')}]`)
 
     // 4. Advance the story graph + side-quest triggers
     const t = advance(campaign, gs)
+    logAdvance('player', t)
     if (t) send({ event: 'node_transition', ...t, node: publicNode(node()) })
     for (const sq of triggeredSideQuests(campaign, gs)) {
       gs.story.sideStack.push(`${sq.id}:${sq.entryNodeId}`)
+      console.log(`[round]   SIDE QUEST triggered: ${sq.id}`)
       send({ event: 'side_quest', id: sq.id, title: sq.nodes?.[0]?.title || sq.id })
     }
 
@@ -176,6 +189,7 @@ router.post('/:id/round', async (req, res) => {
       const role = campaign.roles.find(r => r.id === roleId)
       const mood = save.moods?.[roleId] || getBaselineTraits(botId)
       const live = gs.party[roleId]
+      console.log(`[round]   -- companion turn: ${botId} as ${roleId} --`)
       send({ event: 'companion_start', botId, roleId })
 
       const { read, decision } = await companionInnerRead({ campaign, node: node(), gs, botId, mood, role, situation: lastNarration.slice(0, 700) })
@@ -210,6 +224,7 @@ router.post('/:id/round', async (req, res) => {
       applyDeltas(gs, await adjudicate({ campaign, node: node(), gs, narration: actText }))
       send({ event: 'state_update', gameState: gs })
       const t2 = advance(campaign, gs)
+      logAdvance(botId, t2)
       if (t2) send({ event: 'node_transition', ...t2, node: publicNode(node()) })
     }
 
@@ -217,6 +232,7 @@ router.post('/:id/round', async (req, res) => {
 
     // 6. Images (parallel), grounded in state
     if (pendingImages.length) {
+      console.log(`[round]   generating ${pendingImages.length} image(s): ${pendingImages.map(p => p.subject).join(', ')}`)
       await Promise.all(pendingImages.map(async (pi) => {
         send({ event: 'image_start', subject: pi.subject })
         try {
@@ -229,9 +245,10 @@ router.post('/:id/round', async (req, res) => {
     // 7. Persist (atomic)
     const status = node()?.type === 'ending' ? 'completed' : 'active'
     commitRound(req.params.id, { gameState: gs, round, status, transcriptEntries: transcript })
+    console.log(`[round] ═══ persisted round=${round} status=${status} node=${gs.story.mainNodeId} (+${transcript.length} transcript entries)`)
     send({ event: 'round_done', round, status })
   } catch (err) {
-    console.error('[round] error', err)
+    console.error(`[round] ERROR at node=${gs?.story?.mainNodeId} round=${round}:`, err.stack || err.message)
     send({ event: 'error', error: err.message })
   }
   res.end()

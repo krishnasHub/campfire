@@ -14,6 +14,12 @@ import { buildSystemPrompt, INNER_READ_INSTRUCTION } from './bots.js'
 import { canPerform } from './roles.js'
 import { DC } from './dice.js'
 
+const DEBUG_PROMPTS = process.env.DEBUG_PROMPTS === '1'
+const trunc = (s, n = 220) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
+function logPrompt(tag, sys, usr) {
+  if (DEBUG_PROMPTS) console.log(`[gm] ${tag} PROMPT sys=\n${sys}\n[gm] ${tag} PROMPT usr=\n${usr}`)
+}
+
 export function safeParseJson(raw) {
   const s = String(raw).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
   try { return JSON.parse(s) } catch { /* fall through */ }
@@ -40,13 +46,17 @@ Return ONLY JSON: {"needsRoll": boolean, "skill": string|null, "target": string|
 Common skills: melee, ranged, stealth, perception, athletics, persuade, deceive, intimidate, lore, tactics, sleight, acrobatics — plus any setting skills (tech, piloting, hacking, etc.).
 DC ladder: easy 8, medium 12, hard 16, very hard 20. "target" = an enemy or npc id if the action is against someone, else null.`
   const usr = `${serializeForPrompt(gs, campaign, node)}\n\nThe player is ${userRole?.name} (${userRole?.race} ${userRole?.class}).\nPlayer action: "${actionText}"\n\nClassify it.`
+  logPrompt('intent', sys, usr)
   const raw = await streamChatCompletion({
     messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
     model: modelForJob('intentParse'), temperature: 0.2, maxTokens: 180,
   })
   const j = safeParseJson(raw)
-  if (!j || typeof j.needsRoll !== 'boolean') return { needsRoll: false, skill: null, target: null, dc: null }
-  return { needsRoll: j.needsRoll, skill: j.skill || null, target: j.target || null, dc: j.dc || DC.medium }
+  const out = (!j || typeof j.needsRoll !== 'boolean')
+    ? { needsRoll: false, skill: null, target: null, dc: null }
+    : { needsRoll: j.needsRoll, skill: j.skill || null, target: j.target || null, dc: j.dc || DC.medium }
+  console.log(`[gm] intent action="${trunc(actionText, 90)}" -> ${JSON.stringify(out)}${j ? '' : ` (PARSE FAIL raw="${trunc(raw, 120)}")`}`)
+  return out
 }
 
 // ── GM narration (Pass A) ──────────────────────────────────────────────────────
@@ -62,10 +72,13 @@ Never speak or act for the player's own character beyond the direct consequences
   const usr = opening
     ? `${serializeForPrompt(gs, campaign, node)}\n\nOpen the scene: set the stage for this beat and hand the moment to the player. Do not resolve anything yet.`
     : `${serializeForPrompt(gs, campaign, node)}\n\n${actorName} does: "${actionText}"${outcome}\n\nNarrate what happens.`
-  return streamChatCompletion({
+  logPrompt('gm', sys, usr)
+  const text = await streamChatCompletion({
     messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
     model: modelForJob('gmNarration'), maxTokens: maxTokensForJob('gmNarration'), temperature: 0.9, onChunk,
   })
+  console.log(`[gm] narration ${opening ? '(opening) ' : ''}${text.length} chars${/\[IMAGE:/i.test(text) ? ' +IMAGE' : ''}`)
+  return text
 }
 
 // ── Adjudicator (Pass B) ───────────────────────────────────────────────────────
@@ -80,15 +93,20 @@ Return ONLY JSON, omitting empty keys:
 {"flags":{"<allowedFlag>":true|false},"counters":{"<name>":int},"party":{"<roleId>":{"hpDelta":int,"manaDelta":int,"staminaDelta":int,"position":str,"conditionsAdd":[str],"conditionsRemove":[str]}},"enemies":{"<enemyId>":{"hpDelta":int,"status":str}},"relationships":{"<roleId>":{"affinityDelta":int,"tensionDelta":int}}}
 Set a flag true only when the narration clearly makes it so. Never output a flag outside the allowed list.`
   const usr = `CURRENT STATE:\n${serializeForPrompt(gs, campaign, node)}\n\nNARRATION JUST NOW:\n${narration}\n\nOutput the state changes as JSON.`
+  logPrompt('adjudicate', sys, usr)
   const raw = await streamChatCompletion({
     messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
     model: modelForJob('adjudicator'), temperature: 0.1, maxTokens: 400,
   })
-  const deltas = safeParseJson(raw) || {}
+  const parsed = safeParseJson(raw)
+  const deltas = parsed || {}
+  const dropped = []
   if (deltas.flags) {
     const allowed = new Set(flagVocab)
-    for (const k of Object.keys(deltas.flags)) if (!allowed.has(k)) delete deltas.flags[k]
+    for (const k of Object.keys(deltas.flags)) if (!allowed.has(k)) { dropped.push(k); delete deltas.flags[k] }
   }
+  console.log(`[gm] adjudicate node=${node.id} vocab=[${flagVocab.join(',')}]`)
+  console.log(`[gm]   -> flags=${JSON.stringify(deltas.flags || {})} party=${JSON.stringify(deltas.party || {})} enemies=${JSON.stringify(deltas.enemies || {})}${dropped.length ? ` DROPPED_OUT_OF_VOCAB=[${dropped}]` : ''}${parsed ? '' : ` (PARSE FAIL raw="${trunc(raw, 150)}")`}`)
   return deltas
 }
 
@@ -106,6 +124,7 @@ export async function companionInnerRead({ campaign, node, gs, botId, mood, role
   const dm = raw.match(/DECISION:\s*(PASS|MOVE|SCOUT|ATTACK|CAST|ASSIST|SOCIAL|INTIMATE|SPEAK)/i)
   const decision = dm ? dm[1].toUpperCase() : 'SPEAK'
   const read = raw.replace(/DECISION:\s*\w+.*$/is, '').replace(/^\s*(inner read|read)\s*[:—-]*/i, '').trim()
+  console.log(`[gm] ${role.name}/${botId} inner-read decision=${decision}${dm ? '' : ' (no token, defaulted)'} read="${trunc(read, 130)}"`)
   return { read, decision }
 }
 
@@ -121,10 +140,13 @@ export async function companionAction({ campaign, node, gs, botId, mood, role, d
     + (check ? `\n\nDICE OUTCOME of your action: ${String(check.tier).toUpperCase()}.` : '')
     + `\n\nYour private read going in (never quote it, let it drive you): ${read}`
   const usr = `${serializeForPrompt(gs, campaign, node)}\n\nIt's your moment. Act as ${role.name}.`
-  return streamChatCompletion({
+  logPrompt('companionAction', sys, usr)
+  const text = await streamChatCompletion({
     messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }],
     model: modelForJob('companionAction'), maxTokens: 320, temperature: 0.95, onChunk,
   })
+  console.log(`[gm] ${role.name}/${botId} action(${decision}) ${text.length} chars`)
+  return text
 }
 
 // Pick a dice check for a companion's declared decision (or null for no-roll decisions).
