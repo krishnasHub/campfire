@@ -3,6 +3,7 @@ import { getJSON, del } from './api.js'
 import StartScreen from './screens/StartScreen.jsx'
 import SetupScreen from './screens/SetupScreen.jsx'
 import PlayScreen from './screens/PlayScreen.jsx'
+import StoryEditor from './screens/StoryEditor.jsx'
 
 const NAME_KEY = 'campfire-name'
 
@@ -11,7 +12,7 @@ export default function App() {
   const [campaigns, setCampaigns] = useState([])
   const [saves, setSaves] = useState([])
   const [userName, setUserName] = useState(() => localStorage.getItem(NAME_KEY) || '')
-  const [view, setView] = useState('start')            // 'start' | 'setup' | 'play'
+  const [view, setView] = useState('start')            // 'start' | 'setup' | 'play' | 'editor'
   const [setupCampaign, setSetupCampaign] = useState(null)
   const [sessionId, setSessionId] = useState(null)
 
@@ -29,7 +30,11 @@ export default function App() {
   async function deleteSave(sid) { await del('/api/game/' + sid); refreshSaves() }
   function beginPlay(sid) { setSessionId(sid); setView('play') }
   function exitToStart() { setSessionId(null); setSetupCampaign(null); setView('start'); refreshSaves() }
+  function refreshCampaigns() { getJSON('/api/campaigns').then(setCampaigns).catch(() => {}) }
 
+  if (view === 'editor') {
+    return <StoryEditor onBack={() => setView('start')} onSaved={() => { refreshCampaigns() }} />
+  }
   if (view === 'setup') {
     return <SetupScreen campaign={setupCampaign} companions={companions} userName={userName} onBegin={beginPlay} onBack={exitToStart} />
   }
@@ -41,6 +46,7 @@ export default function App() {
       companions={companions} campaigns={campaigns} saves={saves}
       userName={userName} onName={saveName}
       onPlay={startSetup} onResume={resume} onDelete={deleteSave}
+      onCreate={() => setView('editor')}
     />
   )
 }

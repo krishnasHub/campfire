@@ -15,9 +15,16 @@ import { canPerform } from './roles.js'
 import { DC } from './dice.js'
 
 export function safeParseJson(raw) {
-  try {
-    return JSON.parse(String(raw).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''))
-  } catch { return null }
+  const s = String(raw).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
+  try { return JSON.parse(s) } catch { /* fall through */ }
+  // Tolerate prose around the JSON: slice from the first { or [ to the matching last } or ].
+  const starts = ['{', '['].map(ch => s.indexOf(ch)).filter(i => i >= 0)
+  if (!starts.length) return null
+  const first = Math.min(...starts)
+  const close = s[first] === '{' ? '}' : ']'
+  const last = s.lastIndexOf(close)
+  if (last > first) { try { return JSON.parse(s.slice(first, last + 1)) } catch { /* give up */ } }
+  return null
 }
 
 export function extractImageTag(content) {

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { listCampaigns, getCampaign, campaignSummary, saveCampaign } from '../services/campaigns.js'
+import { generateCampaign } from '../services/storyGen.js'
 import { lint } from '../services/storyGraph.js'
 
 const router = Router()
@@ -27,9 +28,16 @@ router.post('/', (req, res) => {
   res.status(result.ok ? 200 : 400).json(result)
 })
 
-// POST /api/campaigns/generate — AI authoring (M9); stub for now
-router.post('/generate', (req, res) => {
-  res.status(501).json({ error: 'AI generation not implemented yet (M9)' })
+// POST /api/campaigns/generate — AI authoring (returns a lint-clean draft, not saved)
+router.post('/generate', async (req, res) => {
+  try {
+    const { title, vibe, genre } = req.body || {}
+    const result = await generateCampaign({ title, vibe, genre })
+    res.json(result)
+  } catch (err) {
+    console.error('[generate]', err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 export default router

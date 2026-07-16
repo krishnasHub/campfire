@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import CompanionCard from '../components/CompanionCard.jsx'
 
-export default function StartScreen({ companions, campaigns, saves, userName, onName, onPlay, onResume, onDelete }) {
+export default function StartScreen({ companions, campaigns, saves, userName, onName, onPlay, onResume, onDelete, onCreate }) {
   const [name, setName] = useState(userName)
   const activeSaves = saves.filter(s => s.status === 'active')
 
@@ -41,7 +41,10 @@ export default function StartScreen({ companions, campaigns, saves, userName, on
       )}
 
       <section className="mb-10">
-        <h2 className="text-lg font-serif text-stone-300 mb-3">Stories</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-serif text-stone-300">Stories</h2>
+          <button onClick={onCreate} className="text-xs text-ember hover:text-amber-300 border border-ash-600 hover:border-ember rounded px-3 py-1.5 transition-colors">✨ Create a story</button>
+        </div>
         <div className="grid sm:grid-cols-2 gap-4">
           {campaigns.map(c => (
             <button key={c.id} onClick={() => onPlay(c)}
